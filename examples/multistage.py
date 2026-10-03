@@ -11,7 +11,7 @@ import argparse
 import json
 from pathlib import Path
 
-from ai_security_school_sdk import Client
+from hundredflags_sdk import Client
 
 
 def main() -> None:

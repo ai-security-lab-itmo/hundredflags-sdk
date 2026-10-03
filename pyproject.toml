@@ -1,7 +1,7 @@
 [project]
-name = "ai-security-school-sdk"
-version = "0.3.1"
-description = "Python client for AI Security School agent environment documentation and actions"
+name = "hundredflags-sdk"
+version = "0.4.0"
+description = "Python client for HundredFlags agent environment documentation and actions"
 readme = "README.md"
 authors = [
     { name = "germankochnev", email = "kochgerm@gmail.com" }
@@ -15,9 +15,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ai-security-lab-itmo/ai-security-school-sdk"
-Documentation = "https://github.com/ai-security-lab-itmo/ai-security-school-sdk#readme"
-Issues = "https://github.com/ai-security-lab-itmo/ai-security-school-sdk/issues"
+Homepage = "https://github.com/ai-security-lab-itmo/hundredflags-sdk"
+Documentation = "https://github.com/ai-security-lab-itmo/hundredflags-sdk#readme"
+Issues = "https://github.com/ai-security-lab-itmo/hundredflags-sdk/issues"
 
 [dependency-groups]
 dev = ["pytest>=8.3,<9", "pytest-asyncio>=0.25,<2", "ruff>=0.9,<1", "mypy>=1.15,<2", "types-jsonschema>=4.23"]
@@ -40,3 +40,6 @@ strict = true
 [build-system]
 requires = ["uv_build>=0.12.5,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = ["hundredflags_sdk", "ai_security_school_sdk"]

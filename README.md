@@ -1,6 +1,6 @@
-# AI Security School SDK
+# HundredFlags SDK
 
-Python-клиент для работы с агентными средами полигона AI Security School.
+Python-клиент для работы с агентными средами полигона HundredFlags.
 SDK получает документацию конкретной задачи и вызывает тот же `agent-env` API,
 которым пользуется браузер: состояние, действия, проверку и сброс.
 
@@ -9,18 +9,40 @@ SDK получает документацию конкретной задачи 
 Требуется Python 3.12 или новее.
 
 ```sh
-python -m pip install ai-security-school-sdk
+python -m pip install hundredflags-sdk
 ```
 
 Для воспроизводимой установки этой версии:
 
 ```sh
-python -m pip install ai-security-school-sdk==0.3.1
+python -m pip install hundredflags-sdk==0.4.0
 ```
 
-Версия 0.3.1 использует контракт платформы `2026-09-runtime-1` и работает с
+Версия 0.4.0 использует контракт платформы `2026-09-runtime-1` и работает с
 существующими экземплярами `agent-env` и их задачами. Обновляйте SDK вместе с
 платформой; отдельные лаборатории или прогоны создавать не нужно.
+
+## Переход с ai-security-school-sdk
+
+Начиная с 0.4.0 пакет называется `hundredflags-sdk`, а основной импорт —
+`hundredflags_sdk`. API задач и контракт `2026-09-runtime-1` сохранены.
+
+Для перехода из существующего окружения:
+
+```sh
+python -m pip uninstall ai-security-school-sdk
+python -m pip install --upgrade hundredflags-sdk
+```
+
+Удалите старую зависимость из `pyproject.toml` или `requirements.txt`, заменив
+её на `hundredflags-sdk`. Не устанавливайте оба дистрибутива одновременно:
+они содержат общий совместимый модуль `ai_security_school_sdk`.
+Старые импорты клиентов, моделей и исключений продолжают работать через этот
+модуль; реализация у него общая с `hundredflags_sdk`.
+
+`AI_SECURITY_SCHOOL_TOKEN` и `AI_SECURITY_SCHOOL_BASE_URL` остаются совместимыми
+именами переменных окружения. `HUNDREDFLAGS_TOKEN` и `HUNDREDFLAGS_BASE_URL`
+имеют приоритет, когда заданы; аргументы `from_env(...)` имеют приоритет над ними.
 
 ## Подключение и документация
 
@@ -28,15 +50,15 @@ python -m pip install ai-security-school-sdk==0.3.1
 в личном кабинете платформы и передайте его через переменную окружения. Ключ
 принадлежит вашему аккаунту и работает со всеми доступными вам задачами;
 конкретную задачу выбирайте по её `task_id` в SDK.
-`AI_SECURITY_SCHOOL_BASE_URL` можно задать для другого развёртывания; по умолчанию
+`HUNDREDFLAGS_BASE_URL` можно задать для другого развёртывания; по умолчанию
 используется `https://plgn.hundredflags.ru`.
 
 ```sh
-export AI_SECURITY_SCHOOL_TOKEN="YOUR_TOKEN"
+export HUNDREDFLAGS_TOKEN="YOUR_TOKEN"
 ```
 
 ```python
-from ai_security_school_sdk import Client
+from hundredflags_sdk import Client
 
 with Client.from_env() as client:
     for env in client.envs.list():
@@ -137,7 +159,7 @@ runtime без фоновых заданий SDK, checkpoint, fork или вос
 
 ```python
 import asyncio
-from ai_security_school_sdk import AsyncClient
+from hundredflags_sdk import AsyncClient
 
 
 async def main():
@@ -159,9 +181,9 @@ asyncio.run(main())
 получает текущее серверное состояние. Дополнительные поля ответов сохраняются
 в моделях и доступны через `model_dump()`.
 
-Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/ai-security-school-sdk/blob/v0.3.1/examples/first_experiment.py),
-[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/ai-security-school-sdk/blob/v0.3.1/examples/async_search.py),
-[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/ai-security-school-sdk/blob/v0.3.1/examples/multistage.py).
+Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.4.0/examples/first_experiment.py),
+[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.4.0/examples/async_search.py),
+[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.4.0/examples/multistage.py).
 
 ## Ошибки и сетевые повторы
 
@@ -195,7 +217,7 @@ uv build
 
 Пакет не импортирует backend платформы. Sync/async тестируются через HTTPX
 MockTransport против одного контракта `/api/agent-env`.
-Публикация описана в [PUBLISHING.md](https://github.com/ai-security-lab-itmo/ai-security-school-sdk/blob/main/PUBLISHING.md).
+Публикация описана в [PUBLISHING.md](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/main/PUBLISHING.md).
 
 ## Runtime contract
 

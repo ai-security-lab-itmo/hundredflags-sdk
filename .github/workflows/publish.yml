@@ -18,7 +18,7 @@ concurrency:
 jobs:
   resolve:
     name: Validate the immutable release source
-    if: github.repository == 'ai-security-lab-itmo/ai-security-school-sdk'
+    if: github.repository == 'ai-security-lab-itmo/hundredflags-sdk'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -82,7 +82,7 @@ jobs:
     timeout-minutes: 10
     environment:
       name: pypi
-      url: https://pypi.org/p/ai-security-school-sdk
+      url: https://pypi.org/p/hundredflags-sdk
     permissions:
       id-token: write
     steps:

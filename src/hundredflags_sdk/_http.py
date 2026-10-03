@@ -34,8 +34,13 @@ def positive_duration(value: float, name: str, *, allow_zero: bool = False) -> f
 
 def environment_config(overrides: dict[str, Any]) -> dict[str, Any]:
     options: dict[str, Any] = {
-        "token": os.environ.get("AI_SECURITY_SCHOOL_TOKEN", ""),
-        "base_url": os.environ.get("AI_SECURITY_SCHOOL_BASE_URL") or DEFAULT_BASE_URL,
+        "token": os.environ.get(
+            "HUNDREDFLAGS_TOKEN", os.environ.get("AI_SECURITY_SCHOOL_TOKEN", "")
+        ),
+        "base_url": os.environ.get(
+            "HUNDREDFLAGS_BASE_URL",
+            os.environ.get("AI_SECURITY_SCHOOL_BASE_URL") or DEFAULT_BASE_URL,
+        ),
     }
     options.update(overrides)
     return options
@@ -45,7 +50,7 @@ def client_options(
     token: str, base_url: str, timeout: float, max_retries: int, retry_backoff: float
 ) -> dict[str, Any]:
     if not token or token != token.strip() or any(ord(c) < 33 or ord(c) > 126 for c in token):
-        raise ConfigurationError("Set AI_SECURITY_SCHOOL_TOKEN to a valid learner token")
+        raise ConfigurationError("Set HUNDREDFLAGS_TOKEN to a valid learner token")
     try:
         url = urlsplit(base_url)
     except ValueError as exc:
@@ -73,7 +78,7 @@ def client_options(
         "headers": {
             "Authorization": f"Bearer {token}",
             "Accept": "application/json",
-            "User-Agent": f"ai-security-school-sdk/{version('ai-security-school-sdk')}",
+            "User-Agent": f"hundredflags-sdk/{version('hundredflags-sdk')}",
         },
         "timeout": timeout,
         "follow_redirects": False,

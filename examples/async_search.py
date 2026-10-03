@@ -13,7 +13,7 @@ import asyncio
 import json
 from pathlib import Path
 
-from ai_security_school_sdk import AsyncClient
+from hundredflags_sdk import AsyncClient
 
 
 async def main() -> None:

@@ -8,7 +8,7 @@ uv run python examples/first_experiment.py TASK_ID --payload '{"message":"..."}'
 import argparse
 import json
 
-from ai_security_school_sdk import Client
+from hundredflags_sdk import Client
 
 
 def main() -> None:

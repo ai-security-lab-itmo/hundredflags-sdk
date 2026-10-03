@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
-from ai_security_school_sdk import (
+from hundredflags_sdk import (
     ActionValidationError,
     APIError,
     AsyncClient,
@@ -26,7 +26,7 @@ from ai_security_school_sdk import (
     TransportError,
     __version__,
 )
-from ai_security_school_sdk._http import retry_delay
+from hundredflags_sdk._http import retry_delay
 
 
 async def invoke(fn: Any, *args: Any, **kwargs: Any) -> Any:
@@ -108,7 +108,7 @@ class AgentEnvServer:
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         assert request.headers["Authorization"] == "Bearer test-token"
-        assert request.headers["User-Agent"] == f"ai-security-school-sdk/{__version__}"
+        assert request.headers["User-Agent"] == f"hundredflags-sdk/{__version__}"
         assert request.url.path.startswith("/api/agent-env/")
         assert "Idempotency-Key" not in request.headers
         assert "session_id" not in request.url.params
@@ -523,8 +523,8 @@ def test_invalid_configuration(client_type: Any, options: Any) -> None:
 async def test_configuration_from_env_and_no_retry_mode(
     client_type: Any, base_url: str, monkeypatch: Any
 ) -> None:
-    monkeypatch.setenv("AI_SECURITY_SCHOOL_TOKEN", "env-token")
-    monkeypatch.setenv("AI_SECURITY_SCHOOL_BASE_URL", base_url)
+    monkeypatch.setenv("HUNDREDFLAGS_TOKEN", "env-token")
+    monkeypatch.setenv("HUNDREDFLAGS_BASE_URL", base_url)
     requests = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -566,7 +566,7 @@ def test_backoff_caps_untrusted_retry_after() -> None:
 
 
 def test_installed_package_version_matches_public_version() -> None:
-    assert version("ai-security-school-sdk") == __version__ == "0.3.1"
+    assert version("hundredflags-sdk") == __version__ == "0.4.0"
 
 
 async def test_async_cancellation_does_not_resend_a_mutation() -> None:

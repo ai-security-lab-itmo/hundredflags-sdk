@@ -58,7 +58,7 @@ jobs:
           if not re.fullmatch(r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", tag):
               raise SystemExit("Expected an exact stable release tag: vX.Y.Z")
           project = tomllib.loads(Path("pyproject.toml").read_text())["project"]
-          if project["name"] != "ai-security-school-sdk" or project["version"] != tag[1:]:
+          if project["name"] != "hundredflags-sdk" or project["version"] != tag[1:]:
               raise SystemExit("Release tag does not match package name/version")
           actual = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
           if actual != os.environ["SOURCE_SHA"]:
@@ -95,7 +95,7 @@ jobs:
           python = str(target / "bin" / "python")
           subprocess.run([python, "-m", "pip", "install", str(wheels[0].resolve())], check=True, cwd=target)
           subprocess.run([python, "-m", "pip", "check"], check=True, cwd=target)
-          subprocess.run([python, "-I", "-c", "from ai_security_school_sdk import Client, AsyncClient; print('SDK imports OK')"], check=True, cwd=target)
+          subprocess.run([python, "-I", "-c", "from hundredflags_sdk import Client, AsyncClient; from ai_security_school_sdk import Client as LegacyClient, AsyncClient as LegacyAsyncClient; from hundredflags_sdk.errors import APIError; from ai_security_school_sdk.errors import APIError as LegacyAPIError; assert (Client, AsyncClient, APIError) == (LegacyClient, LegacyAsyncClient, LegacyAPIError); print('SDK and legacy imports OK')"], check=True, cwd=target)
           PY
       - name: Retain the distributions checked on Python 3.12
         if: matrix.python == '3.12'
