@@ -1,11 +1,13 @@
 """Asynchronous client for the platform's shared agent-env runtime."""
 
 import asyncio
+from collections.abc import Coroutine
 from types import TracebackType
 from typing import Any, Self
 
 import httpx
 
+from ._actions import ActionMethods
 from ._handles import EnvironmentHandle, TaskHandle
 from ._http import (
     DEFAULT_BASE_URL,
@@ -213,10 +215,7 @@ class AsyncTaskResource(TaskHandle):
         )
 
 
-class AsyncActions:
-    def __init__(self, task: AsyncTaskResource) -> None:
-        self._task = task
-
+class AsyncActions(ActionMethods[AsyncTaskResource, Coroutine[Any, Any, RuntimeResponse]]):
     async def list(self) -> list[ActionDescriptor]:
         return (await self._task.documentation()).actions
 

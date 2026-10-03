@@ -6,6 +6,7 @@ from typing import Any, Self
 
 import httpx
 
+from ._actions import ActionMethods
 from ._handles import EnvironmentHandle, TaskHandle
 from ._http import (
     DEFAULT_BASE_URL,
@@ -208,10 +209,7 @@ class TaskResource(TaskHandle):
         )
 
 
-class Actions:
-    def __init__(self, task: TaskResource) -> None:
-        self._task = task
-
+class Actions(ActionMethods[TaskResource, RuntimeResponse]):
     def list(self) -> list[ActionDescriptor]:
         return self._task.documentation().actions
 

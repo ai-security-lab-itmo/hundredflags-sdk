@@ -27,6 +27,9 @@ def main() -> None:
             print(action.model_dump_json(indent=2))
         print(json.dumps(docs.action_payload_schema, ensure_ascii=False, indent=2))
         if args.action:
+            # Known names also support task.actions.read_public() and
+            # task.actions.update_document(document_id="candidate", body="...").
+            # This CLI keeps call() because the action name is chosen at runtime.
             print(
                 task.actions.call(args.action, json.loads(args.arguments)).model_dump_json(indent=2)
             )

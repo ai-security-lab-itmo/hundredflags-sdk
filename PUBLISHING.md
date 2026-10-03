@@ -22,7 +22,7 @@ changes. Release 0.2.0 replaces the separate learner-labs API with the shared
 `/api/agent-env` API. Deploy the matching platform endpoints before publishing it;
 0.1.x scripts require migration to environments and tasks.
 
-Release 0.6.0 requires the platform's public-state documentation response.
+Release 0.6.1 requires the platform's public-state documentation response.
 Deploy that backend before publishing the SDK: documentation models require
 `state` and no longer expose narrative `description`/`instructions`. Runtime
 responses separate current `attempt_completed` from durable `completed`.
@@ -33,7 +33,7 @@ the package page. Publish a new patch version for README-only corrections.
 Users can install that GitHub version without a PyPI account:
 
 ```sh
-python -m pip install "hundredflags-sdk @ https://github.com/ai-security-lab-itmo/hundredflags-sdk/archive/refs/tags/v0.6.0.tar.gz"
+python -m pip install "hundredflags-sdk @ https://github.com/ai-security-lab-itmo/hundredflags-sdk/archive/refs/tags/v0.6.1.tar.gz"
 ```
 
 ## One-time PyPI setup
@@ -76,11 +76,11 @@ tag**, with the same tag as the input; dispatching from `main` is rejected:
 ```sh
 gh workflow run publish.yml \
   --repo ai-security-lab-itmo/hundredflags-sdk \
-  --ref v0.6.0 \
-  -f tag=v0.6.0
+  --ref v0.6.1 \
+  -f tag=v0.6.1
 ```
 
-The workflow resolves `refs/tags/v0.6.0` to its commit SHA, checks it against the
+The workflow resolves `refs/tags/v0.6.1` to its commit SHA, checks it against the
 dispatch commit, and passes that SHA to the isolated CI/build job. The package
 name and version must match the release tag. The publish job receives only the
 checked artifact, has `id-token: write` without repository write permissions, and
@@ -92,7 +92,7 @@ Watch the workflow through completion and verify the published package in a fres
 virtual environment:
 
 ```sh
-python -m pip install --index-url https://pypi.org/simple hundredflags-sdk==0.6.0
+python -m pip install --index-url https://pypi.org/simple hundredflags-sdk==0.6.1
 python -m pip check
 python -c "from hundredflags_sdk import Client, AsyncClient"
 ```

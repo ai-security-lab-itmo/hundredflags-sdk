@@ -244,6 +244,98 @@ async def test_call_uses_latest_documentation_and_never_guesses_hidden_actions(s
     await invoke(task.act, {"action": "send_message", "message": "Hello"})
 
 
+async def test_dot_action_reuses_named_call_and_refreshes_allowed_actions(setup: Any) -> None:
+    client, server = setup
+    task = await invoke(client.tasks.get, "task_named")
+    before_lookup = len(server.requests)
+    send = task.actions.send_message
+    assert "send_message" in dir(task.actions)
+    assert "internal_agent_tool" not in dir(task.actions)
+    assert len(server.requests) == before_lookup
+    result = await invoke(send, message="Hello")
+    assert result.state == {"messages": ["Hello"]}
+    assert json.loads(server.requests[-1].content)["action_payload"] == {
+        "action": "send_message", "message": "Hello",
+    }
+
+    server.docs["task_named"]["actions"] = []
+    before_rejected_call = len(server.requests)
+    with pytest.raises(ActionValidationError, match="not documented"):
+        await invoke(send, message="No longer allowed")
+    with pytest.raises(ActionValidationError, match="not documented"):
+        await invoke(task.actions.internal_agent_tool)
+    assert all(request.method == "GET" for request in server.requests[before_rejected_call:])
+    assert "send_message" not in dir(task.actions)
+
+
+async def test_dot_action_without_arguments_and_lazy_documentation(setup: Any) -> None:
+    client, server = setup
+    schema = {"type": "object", "properties": {}, "additionalProperties": False}
+    server.docs["task_named"].update(
+        actions=[{
+            "name": "read_public", "description": "Read public state", "input_schema": schema,
+        }],
+        action_payload_schema={
+            **schema, "properties": {"action": {"const": "read_public"}}, "required": ["action"],
+        },
+        action_payload_examples=[{"action": "read_public"}],
+    )
+    env = await invoke(client.envs.get, "env_one")
+    task = (await invoke(env.tasks.list))[0]
+    before_lookup = len(server.requests)
+    read_public = task.actions.read_public
+    assert len(server.requests) == before_lookup
+
+    def hook(request: httpx.Request) -> httpx.Response | None:
+        if request.method == "POST":
+            assert json.loads(request.content) == {
+                "task_id": "task_named", "action_payload": {"action": "read_public"},
+            }
+            return httpx.Response(200, json=server.state())
+        return None
+
+    server.hook = hook
+    assert (await invoke(read_public)).state == {"messages": []}
+    assert "read_public" in dir(task.actions)
+
+
+@pytest.mark.parametrize("arguments", [
+    {}, {"message": ""}, {"message": 4}, {"message": "Hello", "action": "hidden"},
+])
+async def test_dot_action_validates_keyword_arguments_before_mutation(
+    setup: Any, arguments: Any
+) -> None:
+    client, server = setup
+    task = await invoke(client.tasks.get, "task_named")
+    with pytest.raises(ActionValidationError):
+        await invoke(task.actions.send_message, **arguments)
+    assert all(request.method == "GET" for request in server.requests)
+
+
+@pytest.mark.parametrize("name", ["_internal", "__missing__", "not-valid", "class"])
+async def test_dot_action_does_not_expose_private_or_non_python_names(
+    setup: Any, name: str
+) -> None:
+    client, server = setup
+    task = await invoke(client.tasks.get, "task_named")
+    before_lookup = len(server.requests)
+    with pytest.raises(AttributeError):
+        getattr(task.actions, name)
+    assert len(server.requests) == before_lookup
+
+
+@pytest.mark.parametrize("name", ["list", "call"])
+async def test_action_names_never_replace_existing_sdk_methods(setup: Any, name: str) -> None:
+    client, server = setup
+    server.docs["task_named"]["actions"][0]["name"] = name
+    server.docs["task_named"]["action_payload_schema"]["properties"]["action"]["const"] = name
+    task = await invoke(client.tasks.get, "task_named")
+    assert [action.name for action in await invoke(task.actions.list)] == [name]
+    assert all(request.method == "GET" for request in server.requests)
+    result = await invoke(task.actions.call, name, {"message": "Hello"})
+    assert result.state == {"messages": ["Hello"]}
+
+
 @pytest.mark.parametrize(
     "arguments", [{}, {"message": ""}, {"message": 4}, {"action": "other", "message": "x"}]
 )
@@ -606,7 +698,7 @@ def test_backoff_caps_untrusted_retry_after() -> None:
 
 
 def test_installed_package_version_matches_public_version() -> None:
-    assert version("hundredflags-sdk") == __version__ == "0.6.0"
+    assert version("hundredflags-sdk") == __version__ == "0.6.1"
 
 
 async def test_async_cancellation_does_not_resend_a_mutation() -> None:

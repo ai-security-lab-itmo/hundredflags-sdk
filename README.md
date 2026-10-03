@@ -15,10 +15,10 @@ python -m pip install hundredflags-sdk
 Для воспроизводимой установки этой версии:
 
 ```sh
-python -m pip install hundredflags-sdk==0.6.0
+python -m pip install hundredflags-sdk==0.6.1
 ```
 
-Версия 0.6.0 работает с существующими экземплярами `agent-env` и их задачами.
+Версия 0.6.1 работает с существующими экземплярами `agent-env` и их задачами.
 Она требует обновлённого API документации: `task.documentation()` возвращает
 текущую открытую часть состояния и действия. Обновляйте SDK вместе с платформой;
 отдельные лаборатории или прогоны создавать не нужно.
@@ -98,7 +98,8 @@ with Client() as client:
 
 ## Выполнение действий
 
-Для действия с именем используйте `task.actions.call(name, arguments)`.
+Для действия с именем используйте `task.actions.ИМЯ(**arguments)` или
+`task.actions.call(name, arguments)`.
 Имя и аргументы выбираются из документации конкретной задачи:
 
 ```python
@@ -107,10 +108,22 @@ with Client.from_env() as client:
     print(task.actions.list())
 
     # Используйте это имя только если оно есть в документации выбранной задачи.
-    result = task.actions.call("send_message", {"message": "Проверь новый документ"})
+    result = task.actions.send_message(message="Проверь новый документ")
     print(result.status, result.response, result.state)
     print(task.state().model_dump())
 ```
+
+Вызов без аргументов выглядит как `task.actions.read_public()`, а в async-клиенте —
+`await task.actions.read_public()`, если это действие опубликовано в документации
+задачи. Вызов через точку принимает именованные аргументы; эквивалентный вариант
+со словарём — `task.actions.call("send_message", {"message": "Проверь новый документ"})`.
+
+Оба варианта заново получают документацию перед выполнением и проверяют, что
+действие доступно и аргументы соответствуют актуальной схеме. Получение атрибута
+само по себе не отправляет запрос; `dir(task.actions)` показывает действия из
+последнего снимка документации. Для действий с именами `list`, `call`, начинающихся
+с `_` или не подходящих для Python-атрибута используйте `.call(name, arguments)`.
+Методы SDK сохраняют своё назначение.
 
 Метод вставляет поле `action` в тело запроса. В `arguments` передаются остальные
 поля; `input_schema` и `examples` описанного действия не содержат `action`.
@@ -200,9 +213,9 @@ asyncio.run(main())
 получает текущее серверное состояние. Дополнительные поля ответов сохраняются
 в моделях и доступны через `model_dump()`.
 
-Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.0/examples/first_experiment.py),
-[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.0/examples/async_search.py),
-[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.0/examples/multistage.py).
+Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.1/examples/first_experiment.py),
+[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.1/examples/async_search.py),
+[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.1/examples/multistage.py).
 
 ## Ошибки и сетевые повторы
 
