@@ -15,17 +15,18 @@ python -m pip install hundredflags-sdk
 Для воспроизводимой установки этой версии:
 
 ```sh
-python -m pip install hundredflags-sdk==0.4.0
+python -m pip install hundredflags-sdk==0.5.0
 ```
 
-Версия 0.4.0 использует контракт платформы `2026-09-runtime-1` и работает с
+Версия 0.5.0 использует контракт платформы `2026-09-runtime-1` и работает с
 существующими экземплярами `agent-env` и их задачами. Обновляйте SDK вместе с
 платформой; отдельные лаборатории или прогоны создавать не нужно.
 
 ## Переход с ai-security-school-sdk
 
-Начиная с 0.4.0 пакет называется `hundredflags-sdk`, а основной импорт —
-`hundredflags_sdk`. API задач и контракт `2026-09-runtime-1` сохранены.
+Пакет называется `hundredflags-sdk`. Начиная с 0.5.0 поддерживается только
+импорт `hundredflags_sdk`; модуль совместимости `ai_security_school_sdk` удалён.
+API задач и контракт `2026-09-runtime-1` сохранены.
 
 Для перехода из существующего окружения:
 
@@ -35,10 +36,9 @@ python -m pip install --upgrade hundredflags-sdk
 ```
 
 Удалите старую зависимость из `pyproject.toml` или `requirements.txt`, заменив
-её на `hundredflags-sdk`. Не устанавливайте оба дистрибутива одновременно:
-они содержат общий совместимый модуль `ai_security_school_sdk`.
-Старые импорты клиентов, моделей и исключений продолжают работать через этот
-модуль; реализация у него общая с `hundredflags_sdk`.
+её на `hundredflags-sdk`. Во всём коде замените `ai_security_school_sdk` на
+`hundredflags_sdk`, в том числе в импортах подмодулей `errors` и `models`.
+Старый проект `ai-security-school-sdk` удалён из PyPI.
 
 `AI_SECURITY_SCHOOL_TOKEN` и `AI_SECURITY_SCHOOL_BASE_URL` остаются совместимыми
 именами переменных окружения. `HUNDREDFLAGS_TOKEN` и `HUNDREDFLAGS_BASE_URL`
@@ -181,9 +181,9 @@ asyncio.run(main())
 получает текущее серверное состояние. Дополнительные поля ответов сохраняются
 в моделях и доступны через `model_dump()`.
 
-Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.4.0/examples/first_experiment.py),
-[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.4.0/examples/async_search.py),
-[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.4.0/examples/multistage.py).
+Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.5.0/examples/first_experiment.py),
+[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.5.0/examples/async_search.py),
+[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.5.0/examples/multistage.py).
 
 ## Ошибки и сетевые повторы
 

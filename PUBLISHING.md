@@ -28,14 +28,13 @@ the package page. Publish a new patch version for README-only corrections.
 Users can install that GitHub version without a PyPI account:
 
 ```sh
-python -m pip install "hundredflags-sdk @ https://github.com/ai-security-lab-itmo/hundredflags-sdk/archive/refs/tags/v0.4.0.tar.gz"
+python -m pip install "hundredflags-sdk @ https://github.com/ai-security-lab-itmo/hundredflags-sdk/archive/refs/tags/v0.5.0.tar.gz"
 ```
 
 ## One-time PyPI setup
 
-The new `hundredflags-sdk` PyPI project needs its own publisher; the publisher
-for `ai-security-school-sdk` does not authorize uploads under the new name.
-Use the renamed GitHub repository in the configuration below.
+The `hundredflags-sdk` PyPI project is configured with the publisher below.
+The former `ai-security-school-sdk` project has been deleted from PyPI.
 
 The project uses GitHub Trusted Publishing. If transferring or
 recreating it, the PyPI project owner must configure the publisher before
@@ -72,11 +71,11 @@ tag**, with the same tag as the input; dispatching from `main` is rejected:
 ```sh
 gh workflow run publish.yml \
   --repo ai-security-lab-itmo/hundredflags-sdk \
-  --ref v0.4.0 \
-  -f tag=v0.4.0
+  --ref v0.5.0 \
+  -f tag=v0.5.0
 ```
 
-The workflow resolves `refs/tags/v0.4.0` to its commit SHA, checks it against the
+The workflow resolves `refs/tags/v0.5.0` to its commit SHA, checks it against the
 dispatch commit, and passes that SHA to the isolated CI/build job. The package
 name and version must match the release tag. The publish job receives only the
 checked artifact, has `id-token: write` without repository write permissions, and
@@ -88,7 +87,7 @@ Watch the workflow through completion and verify the published package in a fres
 virtual environment:
 
 ```sh
-python -m pip install --index-url https://pypi.org/simple hundredflags-sdk==0.4.0
+python -m pip install --index-url https://pypi.org/simple hundredflags-sdk==0.5.0
 python -m pip check
 python -c "from hundredflags_sdk import Client, AsyncClient"
 ```

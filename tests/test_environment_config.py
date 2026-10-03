@@ -1,15 +1,12 @@
-"""Existing integrations keep the same types while new names take precedence."""
+"""Environment configuration precedence and compatibility with existing credentials."""
 
-import importlib
 import inspect
 from typing import Any
 
 import httpx
 import pytest
 
-import ai_security_school_sdk as legacy
 import hundredflags_sdk as sdk
-from ai_security_school_sdk.errors import AuthenticationError as LegacyAuthenticationError
 from hundredflags_sdk import AsyncClient, Client, ConfigurationError
 
 
@@ -124,48 +121,5 @@ async def test_explicit_configuration_overrides_both_environment_names(
     )
     try:
         assert await invoke(client.envs.list) == []
-    finally:
-        await invoke(client.close)
-
-
-def test_legacy_package_exports_same_public_objects() -> None:
-    assert legacy.__version__ == sdk.__version__
-    assert legacy.__all__ == sdk.__all__
-    for name in sdk.__all__:
-        assert getattr(legacy, name) is getattr(sdk, name)
-
-
-@pytest.mark.parametrize("module_name", ["client", "async_client", "errors", "models"])
-def test_legacy_submodule_exports_same_defined_public_objects(module_name: str) -> None:
-    canonical_module = importlib.import_module(f"hundredflags_sdk.{module_name}")
-    legacy_module = importlib.import_module(f"ai_security_school_sdk.{module_name}")
-    public_objects = {
-        name: value
-        for name, value in vars(canonical_module).items()
-        if not name.startswith("_")
-        and getattr(value, "__module__", None) == canonical_module.__name__
-    }
-    assert public_objects
-    for name, value in public_objects.items():
-        assert getattr(legacy_module, name) is value
-
-
-@pytest.mark.parametrize("client_type", [legacy.Client, legacy.AsyncClient])
-async def test_legacy_exception_handlers_catch_canonical_transport_errors(
-    client_type: Any,
-) -> None:
-    client = client_type(
-        "test-token",
-        transport=httpx.MockTransport(
-            lambda request: httpx.Response(
-                401, json={"error": {"code": "invalid_token", "message": "Expired token"}}
-            )
-        ),
-    )
-    try:
-        with pytest.raises(LegacyAuthenticationError) as caught:
-            await invoke(client.envs.list)
-        assert isinstance(caught.value, sdk.AuthenticationError)
-        assert caught.value.code == "invalid_token"
     finally:
         await invoke(client.close)

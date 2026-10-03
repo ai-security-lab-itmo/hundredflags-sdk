@@ -566,7 +566,7 @@ def test_backoff_caps_untrusted_retry_after() -> None:
 
 
 def test_installed_package_version_matches_public_version() -> None:
-    assert version("hundredflags-sdk") == __version__ == "0.4.0"
+    assert version("hundredflags-sdk") == __version__ == "0.5.0"
 
 
 async def test_async_cancellation_does_not_resend_a_mutation() -> None:
