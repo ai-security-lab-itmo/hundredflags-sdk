@@ -2,8 +2,8 @@
 
 The JSON file contains a list of objects matching the named action's input schema.
 By default candidates build on previous state. --reset-each explicitly resets the
-shared environment before every candidate, including the first one. Reset behavior
-is environment-specific and may preserve already earned completions.
+shared environment before every candidate, including the first one. Reset clears
+the current attempt while preserving already earned completions.
 
 uv run python examples/async_search.py TASK_ID ACTION candidates.json --reset-each
 """

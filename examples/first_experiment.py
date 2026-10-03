@@ -21,7 +21,11 @@ def main() -> None:
     args = parser.parse_args()
     with Client.from_env() as client:
         task = client.tasks.get(args.task_id)
-        print(task.documentation().model_dump_json(indent=2))
+        docs = task.documentation()
+        print(json.dumps(docs.state, ensure_ascii=False, indent=2))
+        for action in docs.actions:
+            print(action.model_dump_json(indent=2))
+        print(json.dumps(docs.action_payload_schema, ensure_ascii=False, indent=2))
         if args.action:
             print(
                 task.actions.call(args.action, json.loads(args.arguments)).model_dump_json(indent=2)

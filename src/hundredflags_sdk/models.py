@@ -41,8 +41,8 @@ class InstanceList(PublicModel):
 class TaskDocumentation(TaskSummary):
     instance_id: str
     agent_env_ref: str
-    description: str
-    instructions: str
+    state: JsonObject
+    status: str = "ok"
     action_payload_schema: JsonObject
     action_payload_examples: list[JsonObject] = Field(default_factory=list)
     actions: list[ActionDescriptor] = Field(default_factory=list)
@@ -57,6 +57,7 @@ class RuntimeResponse(PublicModel):
     state: JsonObject | None = None
     response: JsonObject | None = None
     completed: bool | None = None
+    attempt_completed: bool | None = None
     grader_passed: bool | None = None
     grader_result: JsonObject | None = None
     missing_prerequisites: list[JsonObject] | None = None

@@ -33,7 +33,7 @@ from .models import (
 class AsyncClient:
     def __init__(
         self,
-        token: str,
+        token: str | None = None,
         *,
         base_url: str = DEFAULT_BASE_URL,
         timeout: float = 120.0,
@@ -154,7 +154,7 @@ class AsyncTaskResource(TaskHandle):
         self.actions = AsyncActions(self)
 
     async def documentation(self) -> TaskDocumentation:
-        """Fetch current learner documentation and refresh this resource's metadata."""
+        """Fetch current public state and action documentation; refresh resource metadata."""
         data = await self._client._request("GET", f"tasks/{identifier(self.task_id)}/documentation")
         info = parse_model(TaskDocumentation, data)
         if info.task_id != self.task_id or info.instance_id != self.instance_id:

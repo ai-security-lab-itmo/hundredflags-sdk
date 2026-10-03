@@ -15,18 +15,24 @@ python -m pip install hundredflags-sdk
 Для воспроизводимой установки этой версии:
 
 ```sh
-python -m pip install hundredflags-sdk==0.5.0
+python -m pip install hundredflags-sdk==0.6.0
 ```
 
-Версия 0.5.0 использует контракт платформы `2026-09-runtime-1` и работает с
-существующими экземплярами `agent-env` и их задачами. Обновляйте SDK вместе с
-платформой; отдельные лаборатории или прогоны создавать не нужно.
+Версия 0.6.0 работает с существующими экземплярами `agent-env` и их задачами.
+Она требует обновлённого API документации: `task.documentation()` возвращает
+текущую открытую часть состояния и действия. Обновляйте SDK вместе с платформой;
+отдельные лаборатории или прогоны создавать не нужно.
+
+При переходе с 0.5 замените обращения к `docs.instructions` и `docs.description`
+на `docs.state` и `docs.actions`. Легенда и цель остаются на странице задачи.
+`Client()` теперь читает токен из окружения; `RuntimeResponse.attempt_completed`
+отделяет результат текущей попытки от уже полученного зачёта `completed`.
 
 ## Переход с ai-security-school-sdk
 
 Пакет называется `hundredflags-sdk`. Начиная с 0.5.0 поддерживается только
 импорт `hundredflags_sdk`; модуль совместимости `ai_security_school_sdk` удалён.
-API задач и контракт `2026-09-runtime-1` сохранены.
+Идентификаторы задач и методы работы с ними сохранены.
 
 Для перехода из существующего окружения:
 
@@ -42,7 +48,7 @@ python -m pip install --upgrade hundredflags-sdk
 
 `AI_SECURITY_SCHOOL_TOKEN` и `AI_SECURITY_SCHOOL_BASE_URL` остаются совместимыми
 именами переменных окружения. `HUNDREDFLAGS_TOKEN` и `HUNDREDFLAGS_BASE_URL`
-имеют приоритет, когда заданы; аргументы `from_env(...)` имеют приоритет над ними.
+имеют приоритет, когда заданы; явно переданный токен имеет приоритет над ними.
 
 ## Подключение и документация
 
@@ -53,6 +59,12 @@ python -m pip install --upgrade hundredflags-sdk
 `HUNDREDFLAGS_BASE_URL` можно задать для другого развёртывания; по умолчанию
 используется `https://plgn.hundredflags.ru`.
 
+`Client()` и `AsyncClient()` читают токен из `HUNDREDFLAGS_TOKEN`, если аргумент
+`token` не задан или равен `None`. Явно переданный пустой или некорректный токен
+вызывает `ConfigurationError`. Для чтения адреса из `HUNDREDFLAGS_BASE_URL`
+используйте `Client.from_env()` или `AsyncClient.from_env()`; параметры этих
+методов имеют приоритет над переменными окружения.
+
 ```sh
 export HUNDREDFLAGS_TOKEN="YOUR_TOKEN"
 ```
@@ -60,7 +72,7 @@ export HUNDREDFLAGS_TOKEN="YOUR_TOKEN"
 ```python
 from hundredflags_sdk import Client
 
-with Client.from_env() as client:
+with Client() as client:
     for env in client.envs.list():
         print(env.instance_id, env.title)
         for task in env.tasks.list():
@@ -68,7 +80,7 @@ with Client.from_env() as client:
 
     task = client.tasks.get("YOUR_TASK_ID")
     docs = task.documentation()
-    print(docs.instructions)
+    print(docs.status, docs.state)
     print(docs.action_payload_schema)
     print(docs.action_payload_examples)
     for action in docs.actions:
@@ -78,9 +90,11 @@ with Client.from_env() as client:
 `client.envs.get(instance_id)` возвращает одну среду. `env.tasks.list()` возвращает
 задачи из полученного списка; `env.tasks.get(task_id)` загружает документацию
 выбранной задачи. Среда соответствует `agent-env-instance`, задача —
-`ctf-instance`. Документация описывает доступные студенту точки входа, а не
-внутренние инструменты агента. Набор действий и схемы приходят с сервера, поэтому
-новая задача не требует новой версии SDK.
+`ctf-instance`. Каждый вызов `task.documentation()` возвращает актуальную открытую
+часть состояния в `docs.state` и доступные действия с описанием их назначения.
+Условие задачи читается в интерфейсе платформы. Закрытое состояние среды и
+внутренние инструменты агента в документацию не попадают. Набор действий и схемы
+приходят с сервера, поэтому новая задача не требует новой версии SDK.
 
 ## Выполнение действий
 
@@ -132,7 +146,7 @@ with Client.from_env() as client:
 
     if task.documentation().supports_standalone_grading:
         verdict = task.grade()
-        print(verdict.grader_passed, verdict.grader_result, verdict.completed)
+        print(verdict.grader_passed, verdict.grader_result, verdict.attempt_completed)
 
     # При необходимости передайте task.grade({...}) полезную нагрузку проверки.
     # Явный сброс через существующее поведение среды:
@@ -143,11 +157,14 @@ with Client.from_env() as client:
 разрешает отдельный вызов `grade()`. Некоторые задания оценивают ответ внутри
 своих действий, например `submit_card` или `submit_finding`.
 
-У одного пользователя задачи одной среды разделяют состояние с браузером и
-другими скриптами. Получение нового handle или создание второго клиента не
-создаёт отдельную попытку. Сброс затрагивает общее состояние среды; сохранение
-зачётов и пререквизитов определяется её существующим поведением. Локальный
-контекстный менеджер закрывает только HTTP-соединения.
+Браузер и скрипты одного пользователя разделяют состояние одной задачи.
+Разные задачи разделяют его только в средах с общей областью состояния;
+документная среда хранит отдельное состояние для каждой задачи. Получение нового
+handle или создание второго клиента не создаёт отдельную попытку. Сброс действует
+в области состояния, заданной средой, и очищает
+результат текущей попытки (`attempt_completed=False`). Уже полученный зачёт
+сохраняется: `completed=True` продолжает обозначать глобальное прохождение задачи.
+Локальный контекстный менеджер закрывает только HTTP-соединения.
 
 Алгоритм атаки работает в вашем Python-процессе. Вызовы возвращают обычные ответы
 runtime без фоновых заданий SDK, checkpoint, fork или воспроизведения сценария.
@@ -166,7 +183,9 @@ async def main():
     async with AsyncClient.from_env() as client:
         task = await client.tasks.get("YOUR_TASK_ID")
         docs = await task.documentation()
-        print(docs.instructions)
+        print(docs.status, docs.state)
+        for action in docs.actions:
+            print(action.name, action.description)
         result = await task.act({"message": "Привет"})  # Если разрешено схемой.
         print(result.response)
         print((await task.state()).state)
@@ -181,9 +200,9 @@ asyncio.run(main())
 получает текущее серверное состояние. Дополнительные поля ответов сохраняются
 в моделях и доступны через `model_dump()`.
 
-Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.5.0/examples/first_experiment.py),
-[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.5.0/examples/async_search.py),
-[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.5.0/examples/multistage.py).
+Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.0/examples/first_experiment.py),
+[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.0/examples/async_search.py),
+[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.0/examples/multistage.py).
 
 ## Ошибки и сетевые повторы
 
@@ -221,4 +240,4 @@ MockTransport против одного контракта `/api/agent-env`.
 
 ## Runtime contract
 
-Version 0.3 targets the coordinated `2026-09-runtime-1` platform release. HTTP failures use `{ "error": { "code", "message", "details" }, "usage", "retry_after" }`. Task prerequisite and completion metadata refer to explicit task IDs; shared environment state does not imply shared task credit. Upgrade the platform, course clients, and SDK together.
+Version 0.6 keeps the shared `/api/agent-env` runtime and requires its public-state documentation response. Task documentation contains `state` and action descriptors, without narrative `description` or `instructions`. Runtime responses distinguish current `attempt_completed` from durable `completed`. HTTP failures use `{ "error": { "code", "message", "details" }, "usage", "retry_after" }`. Task prerequisite and completion metadata refer to explicit task IDs; shared environment state does not imply shared task credit. Upgrade the platform, course clients, and SDK together.

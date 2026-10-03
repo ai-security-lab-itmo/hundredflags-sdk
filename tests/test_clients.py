@@ -39,6 +39,7 @@ class AgentEnvServer:
         self.requests: list[httpx.Request] = []
         self.messages: list[str] = []
         self.graded = False
+        self.completed = False
         self.hook: Any = None
         self.docs = {
             "task_named": self.documentation("task_named", named=True),
@@ -63,8 +64,8 @@ class AgentEnvServer:
             "agent_env_ref": "existing_agent",
             "ctf_ref": task_id.removeprefix("task_"),
             "title": task_id,
-            "description": "Existing CTF",
-            "instructions": "Inspect the agent",
+            "state": {},
+            "status": "ok",
             "action_payload_schema": payload,
             "action_payload_examples": [
                 {"action": "send_message", "message": "Hello"} if named else {"message": "Hello"}
@@ -100,7 +101,8 @@ class AgentEnvServer:
         return {
             "status": "ok",
             "state": {"messages": list(self.messages)},
-            "completed": self.graded,
+            "completed": self.completed,
+            "attempt_completed": self.graded,
             "usage": {"requests": len(self.messages)},
             "future_runtime_field": {"retained": True},
         }
@@ -124,7 +126,9 @@ class AgentEnvServer:
             return httpx.Response(200, json=self.instance())
         if route.startswith("tasks/") and route.endswith("/documentation"):
             assert request.method == "GET"
-            return httpx.Response(200, json=self.docs[route.split("/")[1]])
+            return httpx.Response(
+                200, json={**self.docs[route.split("/")[1]], "state": self.state()["state"]}
+            )
         if route == "state":
             assert request.method == "GET"
             assert request.url.params["task_id"] in self.docs
@@ -140,6 +144,7 @@ class AgentEnvServer:
         if route == "grade":
             assert set(body) == {"task_id", "payload"}
             self.graded = bool(self.messages)
+            self.completed = self.completed or self.graded
             return httpx.Response(
                 200,
                 json={
@@ -151,6 +156,7 @@ class AgentEnvServer:
         if route == "reset":
             assert set(body) == {"task_id"}
             self.messages.clear()
+            self.graded = False
             return httpx.Response(200, json={**self.state(), "reset": True})
         raise AssertionError(f"Unexpected route: {route}")
 
@@ -178,6 +184,9 @@ async def test_discovery_and_existing_tasks_share_runtime_state(setup: Any) -> N
     docs = await invoke(named.documentation)
     assert isinstance(docs, TaskDocumentation)
     assert docs.model_dump()["future_documentation"] == "preserved"
+    assert docs.state == {"messages": []}
+    assert "instructions" not in docs.model_dump()
+    assert "description" not in docs.model_dump()
     assert (await invoke(named.actions.list))[0].examples == [{"message": "Hello"}]
     result = await invoke(named.actions.call, "send_message", {"message": "First"})
     assert isinstance(result, RuntimeResponse)
@@ -194,13 +203,17 @@ async def test_discovery_and_existing_tasks_share_runtime_state(setup: Any) -> N
     verdict = await invoke(chat.grade)
     assert verdict.grader_passed is True
     assert verdict.completed is True
+    assert verdict.attempt_completed is True
     assert json.loads(server.requests[-1].content)["payload"] == {}
     result = await invoke(named.state)
     assert result.state == {"messages": ["First", "Second"]}
+    assert (await invoke(named.documentation)).state == result.state
     assert result.model_dump()["future_runtime_field"] == {"retained": True}
     await invoke(named.reset)
     assert (await invoke(chat.state)).state == {"messages": []}
     assert (await invoke(chat.state)).completed is True  # Existing reset policy retains credit.
+    assert (await invoke(chat.state)).attempt_completed is False
+    assert (await invoke(named.documentation)).state == {"messages": []}
 
 
 async def test_lazy_task_handles_load_current_documentation(setup: Any) -> None:
@@ -210,8 +223,11 @@ async def test_lazy_task_handles_load_current_documentation(setup: Any) -> None:
     assert not isinstance(task.info, TaskDocumentation)
     doc = await invoke(task.documentation)
     assert task.info is doc
-    server.docs["task_named"]["instructions"] = "Updated by author"
-    assert (await invoke(task.documentation)).instructions == "Updated by author"
+    server.docs["task_named"]["actions"][0]["description"] = "Updated by author"
+    server.messages.append("Current public state")
+    refreshed = await invoke(task.documentation)
+    assert refreshed.actions[0].description == "Updated by author"
+    assert refreshed.state == {"messages": ["Current public state"]}
     with pytest.raises(ConfigurationError):
         await invoke(env.tasks.get, "other_task")
 
@@ -457,6 +473,30 @@ async def test_locked_runtime_response_preserves_prerequisites(setup: Any) -> No
     assert result.missing_prerequisites == [{"ctf_ref": "first"}]
 
 
+@pytest.mark.parametrize("status", ["locked", "incompatible_state"])
+async def test_unavailable_documentation_exposes_no_state_or_actions(
+    setup: Any, status: str
+) -> None:
+    client, server = setup
+    unavailable = {
+        **server.docs["task_named"],
+        "status": status,
+        "state": {},
+        "actions": [],
+        "action_payload_schema": {},
+        "action_payload_examples": [],
+    }
+    server.hook = lambda request: httpx.Response(200, json=unavailable)
+    task = await invoke(client.tasks.get, "task_named")
+    docs = await invoke(task.documentation)
+    assert docs.status == status
+    assert docs.state == {}
+    assert docs.actions == []
+    with pytest.raises(ActionValidationError, match="not documented"):
+        await invoke(task.actions.call, "send_message", {"message": "Hello"})
+    assert all(request.method == "GET" for request in server.requests)
+
+
 async def test_redirect_never_receives_learner_token(setup: Any) -> None:
     client, server = setup
     server.hook = lambda request: httpx.Response(
@@ -566,7 +606,7 @@ def test_backoff_caps_untrusted_retry_after() -> None:
 
 
 def test_installed_package_version_matches_public_version() -> None:
-    assert version("hundredflags-sdk") == __version__ == "0.5.0"
+    assert version("hundredflags-sdk") == __version__ == "0.6.0"
 
 
 async def test_async_cancellation_does_not_resend_a_mutation() -> None:
