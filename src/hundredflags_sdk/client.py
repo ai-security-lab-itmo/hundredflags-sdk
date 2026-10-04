@@ -17,9 +17,10 @@ from ._http import (
     identifier,
     parse_model,
     retry_delay,
+    transport_error,
 )
 from ._schema import action_payload, json_object, validate_payload
-from .errors import ActionValidationError, ConfigurationError, ProtocolError, TransportError
+from .errors import ActionValidationError, ConfigurationError, ProtocolError
 from .models import (
     ActionDescriptor,
     InstanceDocumentation,
@@ -38,11 +39,14 @@ class Client:
         *,
         base_url: str = DEFAULT_BASE_URL,
         timeout: float = 120.0,
+        connect_timeout: float = 5.0,
         max_retries: int = 2,
         retry_backoff: float = 0.25,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
-        options = client_options(token, base_url, timeout, max_retries, retry_backoff)
+        options = client_options(
+            token, base_url, timeout, max_retries, retry_backoff, connect_timeout=connect_timeout
+        )
         self._http = httpx.Client(**options, transport=transport)
         self._max_retries = max_retries
         self._retry_backoff = retry_backoff
@@ -83,7 +87,12 @@ class Client:
                 response = self._http.request(method, path, json=body, params=params)
             except httpx.TransportError as exc:
                 if attempt == retries:
-                    raise TransportError(may_have_executed=method != "GET") from exc
+                    raise transport_error(
+                        exc,
+                        method=method,
+                        url=self._http.base_url.join(path),
+                        attempts=attempt + 1,
+                    ) from exc
             else:
                 if response.status_code not in RETRYABLE_STATUS or attempt == retries:
                     return decode_response(response)

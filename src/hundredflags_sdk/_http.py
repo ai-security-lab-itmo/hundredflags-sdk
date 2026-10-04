@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 import httpx
 from pydantic import ValidationError
 
-from .errors import ConfigurationError, ProtocolError, api_error
+from .errors import ConfigurationError, ProtocolError, TransportError, api_error
 from .models import JsonObject, PublicModel
 
 DEFAULT_BASE_URL = "https://plgn.hundredflags.ru"
@@ -44,7 +44,13 @@ def environment_config(overrides: dict[str, Any]) -> dict[str, Any]:
 
 
 def client_options(
-    token: str | None, base_url: str, timeout: float, max_retries: int, retry_backoff: float
+    token: str | None,
+    base_url: str,
+    timeout: float,
+    max_retries: int,
+    retry_backoff: float,
+    *,
+    connect_timeout: float,
 ) -> dict[str, Any]:
     if token is None:
         token = os.environ.get(
@@ -76,6 +82,7 @@ def client_options(
             "Remote servers require HTTPS; HTTP is supported only for local use"
         )
     positive_duration(timeout, "timeout")
+    positive_duration(connect_timeout, "connect_timeout")
     positive_duration(retry_backoff, "retry_backoff", allow_zero=True)
     if not isinstance(max_retries, int) or isinstance(max_retries, bool) or max_retries < 0:
         raise ConfigurationError("max_retries must be a non-negative integer")
@@ -86,9 +93,34 @@ def client_options(
             "Accept": "application/json",
             "User-Agent": f"hundredflags-sdk/{version('hundredflags-sdk')}",
         },
-        "timeout": timeout,
+        "timeout": httpx.Timeout(timeout, connect=min(timeout, connect_timeout)),
         "follow_redirects": False,
     }
+
+
+def transport_error(
+    error: httpx.TransportError,
+    *,
+    method: str,
+    url: httpx.URL,
+    attempts: int,
+) -> TransportError:
+    """Describe the failed network phase without copying headers or exception details."""
+    reasons = {
+        httpx.ConnectTimeout: "connection timed out; check network, VPN, proxy and DNS settings",
+        httpx.ConnectError: "connection failed; check network, VPN, proxy and DNS settings",
+        httpx.ReadTimeout: "timed out waiting for the server response",
+        httpx.WriteTimeout: "timed out sending the request",
+        httpx.PoolTimeout: "timed out waiting for an available connection",
+    }
+    reason = next(
+        (message for error_type, message in reasons.items() if isinstance(error, error_type)),
+        "network transport failed",
+    )
+    return TransportError(
+        message=f"{method} {url} failed after {attempts} attempt(s): {reason}.",
+        may_have_executed=method != "GET",
+    )
 
 
 def retry_delay(response: httpx.Response | None, attempt: int, backoff: float) -> float:

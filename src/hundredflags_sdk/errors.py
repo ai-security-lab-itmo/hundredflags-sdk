@@ -64,8 +64,12 @@ class LimitExceededError(APIError):
 class TransportError(SDKError):
     """No definitive response was received; a mutation may already have executed."""
 
-    def __init__(self, *, may_have_executed: bool) -> None:
-        message = "Unable to obtain a definitive server response."
+    def __init__(
+        self,
+        *,
+        may_have_executed: bool,
+        message: str = "Unable to obtain a definitive server response.",
+    ) -> None:
         if may_have_executed:
             message += " The action may have executed; inspect task.state() before retrying."
         super().__init__(message)

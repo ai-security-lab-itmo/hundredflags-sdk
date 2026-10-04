@@ -458,7 +458,7 @@ async def test_mutations_are_never_retried(setup: Any, mutation: str, failure: A
     assert sum(req.method == "POST" for req in server.requests) == 1
 
 
-@pytest.mark.parametrize("failure", ["timeout", 429, 502, 503, 504])
+@pytest.mark.parametrize("failure", ["timeout", "connect_timeout", 429, 502, 503, 504])
 async def test_get_retries_are_bounded_and_can_recover(setup: Any, failure: Any) -> None:
     client, server = setup
     attempts = 0
@@ -470,6 +470,8 @@ async def test_get_retries_are_bounded_and_can_recover(setup: Any, failure: Any)
             return None
         if failure == "timeout":
             raise httpx.ReadTimeout("Transient", request=request)
+        if failure == "connect_timeout":
+            raise httpx.ConnectTimeout("Transient", request=request)
         return httpx.Response(failure, json={"detail": "try_again"})
 
     server.hook = fail_twice
@@ -487,6 +489,39 @@ async def test_get_retries_are_bounded_and_can_recover(setup: Any, failure: Any)
         await invoke(client.envs.list)
     assert error.value.may_have_executed is False
     assert attempts == 3
+
+
+@pytest.mark.parametrize(
+    "error_type, expected_reason",
+    [
+        (httpx.ConnectTimeout, "connection timed out"),
+        (httpx.ConnectError, "connection failed"),
+        (httpx.ReadTimeout, "timed out waiting for the server response"),
+        (httpx.WriteTimeout, "timed out sending the request"),
+        (httpx.PoolTimeout, "timed out waiting for an available connection"),
+        (httpx.RemoteProtocolError, "network transport failed"),
+    ],
+)
+async def test_transport_failure_identifies_request_and_phase_without_secrets(
+    setup: Any, error_type: type[httpx.TransportError], expected_reason: str
+) -> None:
+    client, server = setup
+
+    def fail(request: httpx.Request) -> httpx.Response:
+        raise error_type("private transport details test-token", request=request)
+
+    server.hook = fail
+    with pytest.raises(TransportError) as error:
+        await invoke(client.tasks.get, "task_named")
+    message = str(error.value)
+    expected_url = "https://plgn.hundredflags.ru/api/agent-env/tasks/task_named/documentation"
+    assert f"GET {expected_url}" in message
+    assert "3 attempt(s)" in message
+    assert expected_reason in message
+    assert "test-token" not in message
+    assert "private transport details" not in message
+    assert error.value.may_have_executed is False
+    assert len(server.requests) == 3
 
 
 @pytest.mark.parametrize(
@@ -633,6 +668,10 @@ async def test_documentation_identity_mismatch_is_rejected(setup: Any) -> None:
         {"base_url": "https://[invalid"},
         {"timeout": 0},
         {"timeout": float("nan")},
+        {"connect_timeout": 0},
+        {"connect_timeout": -1},
+        {"connect_timeout": float("nan")},
+        {"connect_timeout": float("inf")},
         {"retry_backoff": -1},
         {"max_retries": -1},
         {"max_retries": True},
@@ -641,6 +680,39 @@ async def test_documentation_identity_mismatch_is_rejected(setup: Any) -> None:
 def test_invalid_configuration(client_type: Any, options: Any) -> None:
     with pytest.raises(ConfigurationError):
         client_type(**{"token": "test-token", **options})
+
+
+@pytest.mark.parametrize("client_type", [Client, AsyncClient])
+@pytest.mark.parametrize(
+    "options, connect, response",
+    [
+        ({}, 5.0, 120.0),
+        ({"timeout": 2.0}, 2.0, 2.0),
+        ({"timeout": 180.0}, 5.0, 180.0),
+        ({"connect_timeout": 1.0}, 1.0, 120.0),
+        ({"timeout": 180.0, "connect_timeout": 10.0}, 10.0, 180.0),
+    ],
+)
+async def test_short_connection_timeout_preserves_long_action_response_timeout(
+    client_type: Any, options: dict[str, float], connect: float, response: float
+) -> None:
+    server = AgentEnvServer()
+    client = client_type(
+        "test-token", transport=httpx.MockTransport(server.handle), **options
+    )
+    try:
+        task = await invoke(client.tasks.get, "task_named")
+        await invoke(task.actions.send_message, message="Hello")
+        assert any(request.method == "POST" for request in server.requests)
+        for request in server.requests:
+            assert request.extensions["timeout"] == {
+                "connect": connect,
+                "read": response,
+                "write": response,
+                "pool": response,
+            }
+    finally:
+        await invoke(client.close)
 
 
 @pytest.mark.parametrize("client_type", [Client, AsyncClient])
@@ -698,7 +770,7 @@ def test_backoff_caps_untrusted_retry_after() -> None:
 
 
 def test_installed_package_version_matches_public_version() -> None:
-    assert version("hundredflags-sdk") == __version__ == "0.6.1"
+    assert version("hundredflags-sdk") == __version__ == "0.6.2"
 
 
 async def test_async_cancellation_does_not_resend_a_mutation() -> None:

@@ -15,10 +15,10 @@ python -m pip install hundredflags-sdk
 Для воспроизводимой установки этой версии:
 
 ```sh
-python -m pip install hundredflags-sdk==0.6.1
+python -m pip install hundredflags-sdk==0.6.2
 ```
 
-Версия 0.6.1 работает с существующими экземплярами `agent-env` и их задачами.
+Версия 0.6.2 работает с существующими экземплярами `agent-env` и их задачами.
 Она требует обновлённого API документации: `task.documentation()` возвращает
 текущую открытую часть состояния и действия. Обновляйте SDK вместе с платформой;
 отдельные лаборатории или прогоны создавать не нужно.
@@ -213,9 +213,9 @@ asyncio.run(main())
 получает текущее серверное состояние. Дополнительные поля ответов сохраняются
 в моделях и доступны через `model_dump()`.
 
-Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.1/examples/first_experiment.py),
-[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.1/examples/async_search.py),
-[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.1/examples/multistage.py).
+Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.2/examples/first_experiment.py),
+[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.2/examples/async_search.py),
+[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.2/examples/multistage.py).
 
 ## Ошибки и сетевые повторы
 
@@ -227,8 +227,13 @@ asyncio.run(main())
 - `ActionValidationError` означает локальное несоответствие схеме,
   `ProtocolError` — некорректный ответ или неподдерживаемую ссылку в схеме.
 - Автоматические повторы допускаются только для GET: при сетевых ошибках и
-  HTTP 429/502/503/504. Параметры клиента: `timeout=120`, `max_retries=2`,
-  `retry_backoff=0.25`; `max_retries=0` отключает повторы.
+  HTTP 429/502/503/504. Параметры клиента: `timeout=120`, `connect_timeout=5`,
+  `max_retries=2`, `retry_backoff=0.25`; `max_retries=0` отключает повторы.
+  `connect_timeout` ограничивает установку соединения, а `timeout` — ожидание
+  ответа, отправку данных и ожидание свободного соединения. Соединение также
+  ограничивается `timeout`, если он короче. Это таймауты отдельных сетевых фаз,
+  а не общий срок выполнения с повторами. `TransportError` указывает запрос,
+  число попыток и фазу сетевого сбоя.
 - Действия, проверка и сброс **никогда не повторяются автоматически**.
   При сетевом сбое `TransportError.may_have_executed` показывает, что изменение
   могло уже выполниться. Сначала изучите `task.state()` и только затем решайте,
