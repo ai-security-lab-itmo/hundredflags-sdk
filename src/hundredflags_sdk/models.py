@@ -41,6 +41,12 @@ class InstanceList(PublicModel):
 class TaskDocumentation(TaskSummary):
     instance_id: str
     agent_env_ref: str
+    legend: str = Field(
+        default="", description="Public task legend, shared with the UI; may contain HTML."
+    )
+    goal: str = Field(
+        default="", description="Public task goal, shared with the UI; may contain HTML."
+    )
     state: JsonObject
     status: str = "ok"
     action_payload_schema: JsonObject

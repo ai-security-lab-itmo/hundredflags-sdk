@@ -15,16 +15,18 @@ python -m pip install hundredflags-sdk
 Для воспроизводимой установки этой версии:
 
 ```sh
-python -m pip install hundredflags-sdk==0.6.2
+python -m pip install hundredflags-sdk==0.6.3
 ```
 
-Версия 0.6.2 работает с существующими экземплярами `agent-env` и их задачами.
+Версия 0.6.3 работает с существующими экземплярами `agent-env` и их задачами.
 Она требует обновлённого API документации: `task.documentation()` возвращает
 текущую открытую часть состояния и действия. Обновляйте SDK вместе с платформой;
 отдельные лаборатории или прогоны создавать не нужно.
 
-При переходе с 0.5 замените обращения к `docs.instructions` и `docs.description`
-на `docs.state` и `docs.actions`. Легенда и цель остаются на странице задачи.
+При переходе с 0.5 используйте `docs.state` для открытого состояния и `docs.actions`
+для доступных действий. Публичные легенда и цель доступны в `docs.legend` и
+`docs.goal`; они берутся из того же источника, что и на странице задачи.
+Старые поля `docs.instructions` и `docs.description` больше не используются.
 `Client()` теперь читает токен из окружения; `RuntimeResponse.attempt_completed`
 отделяет результат текущей попытки от уже полученного зачёта `completed`.
 
@@ -80,6 +82,7 @@ with Client() as client:
 
     task = client.tasks.get("YOUR_TASK_ID")
     docs = task.documentation()
+    print(docs.legend, docs.goal)
     print(docs.status, docs.state)
     print(docs.action_payload_schema)
     print(docs.action_payload_examples)
@@ -92,7 +95,11 @@ with Client() as client:
 выбранной задачи. Среда соответствует `agent-env-instance`, задача —
 `ctf-instance`. Каждый вызов `task.documentation()` возвращает актуальную открытую
 часть состояния в `docs.state` и доступные действия с описанием их назначения.
-Условие задачи читается в интерфейсе платформы. Закрытое состояние среды и
+`docs.legend` и `docs.goal` содержат те же публичные легенду и цель, что и интерфейс
+платформы. Строки сохраняют авторское форматирование и могут содержать HTML.
+Они обновляются при каждом запросе документации;
+если сервер ещё не передаёт эти поля, SDK возвращает пустые строки.
+Закрытое состояние среды и
 внутренние инструменты агента в документацию не попадают. Набор действий и схемы
 приходят с сервера, поэтому новая задача не требует новой версии SDK.
 
@@ -196,6 +203,7 @@ async def main():
     async with AsyncClient.from_env() as client:
         task = await client.tasks.get("YOUR_TASK_ID")
         docs = await task.documentation()
+        print(docs.legend, docs.goal)
         print(docs.status, docs.state)
         for action in docs.actions:
             print(action.name, action.description)
@@ -213,9 +221,9 @@ asyncio.run(main())
 получает текущее серверное состояние. Дополнительные поля ответов сохраняются
 в моделях и доступны через `model_dump()`.
 
-Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.2/examples/first_experiment.py),
-[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.2/examples/async_search.py),
-[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.2/examples/multistage.py).
+Примеры: [документация и вызов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.3/examples/first_experiment.py),
+[последовательный поиск кандидатов](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.3/examples/async_search.py),
+[связанные задачи одной среды](https://github.com/ai-security-lab-itmo/hundredflags-sdk/blob/v0.6.3/examples/multistage.py).
 
 ## Ошибки и сетевые повторы
 
@@ -258,4 +266,4 @@ MockTransport против одного контракта `/api/agent-env`.
 
 ## Runtime contract
 
-Version 0.6 keeps the shared `/api/agent-env` runtime and requires its public-state documentation response. Task documentation contains `state` and action descriptors, without narrative `description` or `instructions`. Runtime responses distinguish current `attempt_completed` from durable `completed`. HTTP failures use `{ "error": { "code", "message", "details" }, "usage", "retry_after" }`. Task prerequisite and completion metadata refer to explicit task IDs; shared environment state does not imply shared task credit. Upgrade the platform, course clients, and SDK together.
+Version 0.6 keeps the shared `/api/agent-env` runtime and requires its public-state documentation response. Task documentation contains `state`, action descriptors, and public `legend` and `goal` from the same source as the UI. These rich text strings preserve authored formatting and may contain HTML. Missing narrative fields default to empty strings for compatibility with earlier servers; the old `description` and `instructions` fields are not used. Runtime responses distinguish current `attempt_completed` from durable `completed`. HTTP failures use `{ "error": { "code", "message", "details" }, "usage", "retry_after" }`. Task prerequisite and completion metadata refer to explicit task IDs; shared environment state does not imply shared task credit. Upgrade the platform, course clients, and SDK together.

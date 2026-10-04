@@ -64,6 +64,8 @@ class AgentEnvServer:
             "agent_env_ref": "existing_agent",
             "ctf_ref": task_id.removeprefix("task_"),
             "title": task_id,
+            "legend": "<p>Вы проверяете <strong>документного агента</strong>.</p>",
+            "goal": '<p>Сохраните <a href="https://example.com/summary">публичную сводку</a>.</p>',
             "state": {},
             "status": "ok",
             "action_payload_schema": payload,
@@ -184,6 +186,10 @@ async def test_discovery_and_existing_tasks_share_runtime_state(setup: Any) -> N
     docs = await invoke(named.documentation)
     assert isinstance(docs, TaskDocumentation)
     assert docs.model_dump()["future_documentation"] == "preserved"
+    assert docs.legend == "<p>Вы проверяете <strong>документного агента</strong>.</p>"
+    assert docs.goal == (
+        '<p>Сохраните <a href="https://example.com/summary">публичную сводку</a>.</p>'
+    )
     assert docs.state == {"messages": []}
     assert "instructions" not in docs.model_dump()
     assert "description" not in docs.model_dump()
@@ -224,12 +230,32 @@ async def test_lazy_task_handles_load_current_documentation(setup: Any) -> None:
     doc = await invoke(task.documentation)
     assert task.info is doc
     server.docs["task_named"]["actions"][0]["description"] = "Updated by author"
+    server.docs["task_named"]["legend"] = "### Новая легенда\nИзменена автором."
+    server.docs["task_named"]["goal"] = "Обновлённая **цель**."
     server.messages.append("Current public state")
     refreshed = await invoke(task.documentation)
+    assert task.info is refreshed
     assert refreshed.actions[0].description == "Updated by author"
+    assert refreshed.legend == "### Новая легенда\nИзменена автором."
+    assert refreshed.goal == "Обновлённая **цель**."
     assert refreshed.state == {"messages": ["Current public state"]}
     with pytest.raises(ConfigurationError):
         await invoke(env.tasks.get, "other_task")
+
+
+@pytest.mark.parametrize("missing_fields", [("legend",), ("goal",), ("legend", "goal")])
+async def test_documentation_accepts_servers_without_narrative_fields(
+    setup: Any, missing_fields: tuple[str, ...]
+) -> None:
+    client, server = setup
+    for field in missing_fields:
+        server.docs["task_named"].pop(field)
+    task = await invoke(client.tasks.get, "task_named")
+    for docs in (task.info, await invoke(task.documentation)):
+        for field in ("legend", "goal"):
+            expected = "" if field in missing_fields else server.docs["task_named"][field]
+            assert getattr(docs, field) == expected
+        assert docs.state == {"messages": []}
 
 
 async def test_call_uses_latest_documentation_and_never_guesses_hidden_actions(setup: Any) -> None:
@@ -770,7 +796,7 @@ def test_backoff_caps_untrusted_retry_after() -> None:
 
 
 def test_installed_package_version_matches_public_version() -> None:
-    assert version("hundredflags-sdk") == __version__ == "0.6.2"
+    assert version("hundredflags-sdk") == __version__ == "0.6.3"
 
 
 async def test_async_cancellation_does_not_resend_a_mutation() -> None:

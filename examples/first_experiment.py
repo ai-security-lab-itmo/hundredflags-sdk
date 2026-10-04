@@ -22,6 +22,8 @@ def main() -> None:
     with Client.from_env() as client:
         task = client.tasks.get(args.task_id)
         docs = task.documentation()
+        print(docs.legend)
+        print(docs.goal)
         print(json.dumps(docs.state, ensure_ascii=False, indent=2))
         for action in docs.actions:
             print(action.model_dump_json(indent=2))
